@@ -85,18 +85,19 @@ main(int argc, char **argv)
 	LLVMContext &context = getGlobalContext();
 
 	SMDiagnostic err;
-	OwningPtr<MemoryBuffer> buf;
-	error_code e = MemoryBuffer::getFileOrSTDIN(inputFilename, buf);
-	if (e) {
+        ErrorOr<std::unique_ptr<MemoryBuffer>> FileOrErr =
+        MemoryBuffer::getFileOrSTDIN(inputFilename);
+        std::unique_ptr<MemoryBuffer> &buf = FileOrErr.get();
+        if (std::error_code e = FileOrErr.getError()) {
 		err = SMDiagnostic(inputFilename, SourceMgr::DK_Error,
 				   "failed to open file: " + e.message());
 		err.print(argv[0], errs());
 		return 1;
 	}
 
-	OwningPtr<std::string> module_id(get_module_id(buf.get()));
+	std::unique_ptr<std::string> module_id(get_module_id(buf.get()));
 
-	OwningPtr<Module> module(ParseIR(buf.take(), err, context));
+	std::unique_ptr<Module> module(ParseIR(buf.release(), err, context));
 	if (!module.get()) {
 		err.print(argv[0], errs());
 		return 1;

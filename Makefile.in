@@ -203,7 +203,7 @@ src/llvm/main/compile.$(OBJEXT): src/llvm/main/compile.cpp
 	$(CXX) $(LLVM_CXXFLAGS) -c -o $@ $<
 
 src/llvm/main/compile: $(LLVM_COMPILE_OBJFILES)
-	$(CXX) $(LLVM_LDFLAGS) -o $@ $(LLVM_COMPILE_OBJFILES) $(LLVM_LIBS)
+	$(CXX) $(LLVM_LDFLAGS) -o $@ $(LLVM_COMPILE_OBJFILES) $(LLVM_LIBS) $(LLVM_SYSTEM_LIBS)
 
 # -------- link file map --------
 
@@ -236,6 +236,7 @@ src/compiler/smlsharp: $(COMPILER_LIB_OBJECTS) $(RUNTIME_TARGETS) \
 	  $(srcdir)/src/compiler/smlsharp.smi \
 	  $(COMPILER_SUPPORT_OBJECTS) \
 	  $(LLVM_LIBS) \
+          $(LLVM_SYSTEM_LIBS) \
 	  -o $@
 
 src/compiler/minismlsharp: $(MINISMLSHARP_OBJECTS) $(RUNTIME_TARGETS) \
@@ -245,6 +246,7 @@ src/compiler/minismlsharp: $(MINISMLSHARP_OBJECTS) $(RUNTIME_TARGETS) \
 	  $(srcdir)/src/compiler/minismlsharp.smi \
 	  $(COMPILER_SUPPORT_OBJECTS) \
 	  $(LLVM_LIBS) \
+          $(LLVM_SYSTEM_LIBS) \
 	  -o $@
 
 precompiled/$(MINISMLSHARP_PRECOMPILED).$(OBJEXT): \
@@ -261,6 +263,7 @@ precompiled/$(MINISMLSHARP_PRECOMPILED).$(OBJEXT): \
 	  $(COMPILER_SUPPORT_OBJECTS) \
 	  src/runtime/libsmlsharp.$(LIBEXT) \
 	  $(LIBS) $(LLVM_LIBS) \
+          $(LLVM_SYSTEM_LIBS) \
 	  -o $@
 
 fixup: PHONY

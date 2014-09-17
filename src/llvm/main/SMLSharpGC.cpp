@@ -12,7 +12,7 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetLoweringObjectFile.h>
 #include <llvm/Target/TargetFrameLowering.h>
-#include <llvm/Target/Mangler.h>
+#include <llvm/IR/Mangler.h>
 #include <llvm/MC/MCStreamer.h>
 #include <llvm/MC/MCContext.h>
 
@@ -258,7 +258,7 @@ SMLSharpGCPrinter::finishAssembly(AsmPrinter &ap)
 
 	ap.OutStreamer.SwitchSection
 		(ap.getObjFileLowering().getSectionForConstant
-		 (SectionKind::getReadOnly()));
+		 (SectionKind::getReadOnly(), nullptr));
 	ap.EmitAlignment(ptrSizeNumBits);
 
 	MCSymbol *mapBegin = emitGlobalLabel(ap, getModule(), "_SML_r");

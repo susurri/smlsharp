@@ -7,6 +7,7 @@
 #include <llvm/Config/llvm-config.h>
 #include <llvm/CodeGen/LinkAllCodegenComponents.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/FormattedStream.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/TargetRegistry.h>
@@ -20,8 +21,9 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <llvm/Transforms/IPO.h>
-#include <llvm/Analysis/Verifier.h>
-#include <llvm/Assembly/PrintModulePass.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/IR/IRPrintingPasses.h>
+#include <llvm/Bitcode/BitcodeWriterPass.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 
 using namespace llvm;
@@ -72,13 +74,13 @@ sml_llvm_add_func_attr(LLVMValueRef fn, unsigned int index, LLVMAttribute attr)
 }
 
 static void
-optimize_module(DataLayout *dataLayout, PassManagerBase &mpm, Module *module,
+optimize_module(DataLayoutPass *dataLayout, PassManagerBase &mpm, Module *module,
 		unsigned int optLevel, unsigned int sizeLevel)
 {
-	OwningPtr<FunctionPassManager> fpm(new FunctionPassManager(module));
+	std::unique_ptr <FunctionPassManager> fpm(new FunctionPassManager(module));
 
 	if (dataLayout)
-		fpm.get()->add(new DataLayout(*dataLayout));
+		fpm.get()->add(new DataLayoutPass(dataLayout->getDataLayout()));
 
 	PassManagerBuilder builder;
 	builder.OptLevel = optLevel;
@@ -161,7 +163,7 @@ sml_llvm_compile(Module *module,
 
 	CodeGenOpt::Level opt = LOOKUP(optLevelMap, optLevel);
 
-	OwningPtr<TargetMachine>
+	std::unique_ptr <TargetMachine>
 		tm(target->createTargetMachine(triple.getTriple(),
 					       cpu,
 					       features,
@@ -178,7 +180,7 @@ sml_llvm_compile(Module *module,
 	//tm.get()->setMCUseCFI(false); // disable-cfi
 	//tm.get()->setMCUseDwarfDirectory(true);  // enable-dwarf-directory
 
-	raw_fd_ostream os(outputFilename, error, sys::fs::F_Binary);
+	raw_fd_ostream os(outputFilename, error, sys::fs::F_None);
 	if (!error.empty())
 		return true;
 
@@ -189,11 +191,11 @@ sml_llvm_compile(Module *module,
 	pm.add(tli);
 	tm.get()->addAnalysisPasses(pm);
 
-	DataLayout *dataLayout;
-	if (!module->getDataLayout().empty())
-		dataLayout = new DataLayout(module);
+	DataLayoutPass *dataLayout;
+	if (!module->getDataLayoutStr().empty())
+		dataLayout = new DataLayoutPass(module);
 	else if (tm.get()->getDataLayout())
-		dataLayout = new DataLayout(*tm.get()->getDataLayout());
+		dataLayout = new DataLayoutPass(*tm.get()->getDataLayout());
 	else
 		dataLayout = 0;
 
@@ -213,7 +215,7 @@ sml_llvm_compile(Module *module,
 	formatted_raw_ostream fos;
 
 	if (fileType == IRFile) {
-		pm.add(createPrintModulePass(&os));
+		pm.add(createPrintModulePass(os));
 	} else if (fileType == BitcodeFile) {
 		pm.add(createBitcodeWriterPass(os));
 	} else {

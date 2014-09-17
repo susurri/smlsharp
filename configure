@@ -639,6 +639,7 @@ INCLUDE_STAGE1
 SMLSHARP_STAGE1
 SMLSHARP_STAGE0
 LLVM_SMLSHARP_LDFLAGS
+LLVM_SYSTEM_LIBS
 LLVM_LIBS
 LLVM_LDFLAGS
 LLVM_CPPFLAGS
@@ -4380,6 +4381,15 @@ $as_echo_n "checking for LIBS for llvm... " >&6; }
   if test "$?" = "0"; then :; else as_fn_error $? "failed" "$LINENO" 5; fi
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $LLVM_LIBS" >&5
 $as_echo "$LLVM_LIBS" >&6; }
+
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SYSTEM_LIBS for llvm" >&5
+$as_echo_n "checking for SYSTEM_LIBS for llvm... " >&6; }
+  LLVM_SYSTEM_LIBS=`$LLVM_CONFIG --system-libs`
+  if test "$?" = "0"; then :; else as_fn_error $? "failed" "$LINENO" 5; fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $LLVM_SYSTEM_LIBS" >&5
+$as_echo "$LLVM_SYSTEM_LIBS" >&6; }
 
 
 
