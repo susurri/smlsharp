@@ -10,6 +10,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/Target/TargetMachine.h>
+#include <llvm/Target/TargetSubtargetInfo.h>
 #include <llvm/Target/TargetLoweringObjectFile.h>
 #include <llvm/Target/TargetFrameLowering.h>
 #include <llvm/IR/Mangler.h>
@@ -33,8 +34,8 @@ X("smlsharp", "smlsharp garbage collector");
 class SMLSharpGCPrinter : public GCMetadataPrinter {
 	MCSymbol *codeBegin;
 public:
-	void beginAssembly(AsmPrinter &AP);
-	void finishAssembly(AsmPrinter &AP);
+	void beginAssembly(Module &M, GCModuleInfo &Info, AsmPrinter &AP);
+	void finishAssembly(Module &M, GCModuleInfo &Info, AsmPrinter &AP);
 };
 
 static GCMetadataPrinterRegistry::Add<SMLSharpGCPrinter>
@@ -122,10 +123,10 @@ emitGlobalLabel(AsmPrinter &ap, const Module &m, const Twine &prefix)
 }
 
 void
-SMLSharpGCPrinter::beginAssembly(AsmPrinter &ap)
+SMLSharpGCPrinter::beginAssembly(Module &M, GCModuleInfo &Info, AsmPrinter &ap)
 {
 	ap.OutStreamer.SwitchSection(ap.getObjFileLowering().getTextSection());
-	codeBegin = emitGlobalLabel(ap, getModule(), "_SML_b");
+	codeBegin = emitGlobalLabel(ap, M, "_SML_b");
 }
 
 static int
@@ -164,9 +165,9 @@ emitEntry(AsmPrinter &ap, GCFunctionInfo &md)
 		return;
 
 	bool stackGrowsDown =
-		ap.TM.getFrameLowering()->getStackGrowthDirection()
+		ap.TM.getSubtargetImpl()->getFrameLowering()->getStackGrowthDirection()
 		== TargetFrameLowering::StackGrowsDown;
-	unsigned int ptrSize = ap.TM.getDataLayout()->getPointerSize();
+	unsigned int ptrSize = ap.TM.getSubtargetImpl()->getDataLayout()->getPointerSize();
 
 	ap.OutStreamer.AddComment(md.getFunction().getName());
 
@@ -240,7 +241,7 @@ emitAddrList(AsmPrinter &ap, MCSymbol *base, GCFunctionInfo &md)
 	if (md.size() == 0)
 		return;
 
-	unsigned int ptrSize = ap.TM.getDataLayout()->getPointerSize();
+	unsigned int ptrSize = ap.TM.getSubtargetImpl()->getDataLayout()->getPointerSize();
 
 	ap.OutStreamer.AddComment(md.getFunction().getName());
 
@@ -251,9 +252,9 @@ emitAddrList(AsmPrinter &ap, MCSymbol *base, GCFunctionInfo &md)
 }
 
 void
-SMLSharpGCPrinter::finishAssembly(AsmPrinter &ap)
+SMLSharpGCPrinter::finishAssembly(Module &M, GCModuleInfo &Info, AsmPrinter &ap)
 {
-	unsigned int ptrSize = ap.TM.getDataLayout()->getPointerSize();
+	unsigned int ptrSize = ap.TM.getSubtargetImpl()->getDataLayout()->getPointerSize();
 	unsigned int ptrSizeNumBits = ptrSize == 8 ? 3 : 2;
 
 	ap.OutStreamer.SwitchSection
@@ -261,18 +262,28 @@ SMLSharpGCPrinter::finishAssembly(AsmPrinter &ap)
 		 (SectionKind::getReadOnly(), nullptr));
 	ap.EmitAlignment(ptrSizeNumBits);
 
-	MCSymbol *mapBegin = emitGlobalLabel(ap, getModule(), "_SML_r");
+	MCSymbol *mapBegin = emitGlobalLabel(ap, M, "_SML_r");
 
 	MCSymbol *addrsBegin = ap.OutContext.CreateTempSymbol();
 	ap.OutStreamer.AddComment("addr list offset");
 	ap.EmitLabelDifference(addrsBegin, mapBegin, ptrSize);
 
-	for (iterator fi = begin(), fe = end(); fi != fe; ++fi)
+	for (GCModuleInfo::FuncInfoVec::iterator fi = Info.funcinfo_begin(), fe = Info.funcinfo_end(); fi != fe; ++fi) {
+		GCFunctionInfo &FI = **fi;
+		if (FI.getStrategy().getName() != getStrategy().getName())
+		// this function is managed by some other GC
+				continue;
 		emitEntry(ap, **fi);
+	}
 
 	ap.EmitAlignment(ptrSizeNumBits);
 	ap.OutStreamer.EmitLabel(addrsBegin);
 
-	for (iterator fi = begin(), fe = end(); fi != fe; ++fi)
+	for (GCModuleInfo::FuncInfoVec::iterator fi = Info.funcinfo_begin(), fe = Info.funcinfo_end(); fi != fe; ++fi) {
+		GCFunctionInfo &FI = **fi;
+		if (FI.getStrategy().getName() != getStrategy().getName())
+		// this function is managed by some other GC
+				continue;
 		emitAddrList(ap, codeBegin, **fi);
+	}
 }

@@ -13,6 +13,7 @@
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Target/TargetLibraryInfo.h>
 #include <llvm/Target/TargetMachine.h>
+#include <llvm/Target/TargetSubtargetInfo.h>
 #include <llvm/MC/SubtargetFeature.h>
 #include <llvm/PassManager.h>
 #include <llvm/IR/Value.h>
@@ -80,7 +81,7 @@ optimize_module(DataLayoutPass *dataLayout, PassManagerBase &mpm, Module *module
 	std::unique_ptr <FunctionPassManager> fpm(new FunctionPassManager(module));
 
 	if (dataLayout)
-		fpm.get()->add(new DataLayoutPass(dataLayout->getDataLayout()));
+		fpm.get()->add(new DataLayoutPass());
 
 	PassManagerBuilder builder;
 	builder.OptLevel = optLevel;
@@ -149,6 +150,7 @@ sml_llvm_compile(Module *module,
 		 std::string &error)
 {
 	error = "";
+	std::error_code ec;
 	Triple triple(module->getTargetTriple());
 	const Target *target;
 
@@ -180,9 +182,12 @@ sml_llvm_compile(Module *module,
 	//tm.get()->setMCUseCFI(false); // disable-cfi
 	//tm.get()->setMCUseDwarfDirectory(true);  // enable-dwarf-directory
 
-	raw_fd_ostream os(outputFilename, error, sys::fs::F_None);
-	if (!error.empty())
-		return true;
+	StringRef outputFilename_ref = StringRef(outputFilename);
+	raw_fd_ostream os(outputFilename_ref, ec, sys::fs::F_None);
+	if (ec) { 
+	  error = "Error opening output file '" + std::string(outputFilename) + "': " + ec.message();
+	  return true;
+	}
 
 	PassManager pm;
 
@@ -193,9 +198,11 @@ sml_llvm_compile(Module *module,
 
 	DataLayoutPass *dataLayout;
 	if (!module->getDataLayoutStr().empty())
-		dataLayout = new DataLayoutPass(module);
-	else if (tm.get()->getDataLayout())
-		dataLayout = new DataLayoutPass(*tm.get()->getDataLayout());
+		dataLayout = new DataLayoutPass();
+	else if (tm->getSubtargetImpl()->getDataLayout()) {
+		module->setDataLayout(tm->getSubtargetImpl()->getDataLayout());
+		dataLayout = new DataLayoutPass();
+	}
 	else
 		dataLayout = 0;
 

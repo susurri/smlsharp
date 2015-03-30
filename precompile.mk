@@ -32,11 +32,11 @@ src/compiler/minismlsharp.smi.bc: $(MINISMLSHARP_OBJECTS:.o=.smi)
 .sml.bc:
 	$(SMLSHARP_ENV) $(SMLSHARP_STAGE2) -Bsrc -emit-llvm -c -o $@ $<
 .ppg.ppg.sml:
-        $(SMLFORMAT) --output=$@ $<
+	$(SMLFORMAT) --output=$@ $<
 .lex.lex.sml:
-        SMLLEX_OUTPUT=$@ $(MLLEX) $<
+	SMLLEX_OUTPUT=$@ $(MLLEX) $<
 .grm.grm.sml:
-        SMLYACC_OUTPUT=$@ $(MLYACC) $<
+	SMLYACC_OUTPUT=$@ $(MLYACC) $<
 
 ./precompile.dep: depend.mk precompile.mk
 	sed 's/\.o:/.bc:/' depend.mk > $@
@@ -45,7 +45,7 @@ precompiled/x86_orig.bc: $(OBJECTS)
 	$(LLVM_LINK) -o=$@ $(OBJECTS)
 
 precompiled/x86.ll: precompiled/x86_orig.bc
-	$(OPT) -disable-internalize -std-link-opts -internalize-public-api-list=_SMLmain -internalize -O2 -S -o $@ precompiled/x86_orig.bc
+	$(OPT) -verify -std-link-opts -internalize-public-api-list=_SMLmain -internalize -O2 -S -o $@ precompiled/x86_orig.bc
 
 precompiled/x86.ll.xz: precompiled/x86.ll
 	{ echo "; ModuleID = 'precompiled'" && \

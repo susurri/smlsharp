@@ -97,7 +97,7 @@ main(int argc, char **argv)
 
 	std::unique_ptr<std::string> module_id(get_module_id(buf.get()));
 
-	std::unique_ptr<Module> module(ParseIR(buf.release(), err, context));
+	std::unique_ptr<Module> module(parseIR(buf.release()->getMemBufferRef(), err, context));
 	if (!module.get()) {
 		err.print(argv[0], errs());
 		return 1;
